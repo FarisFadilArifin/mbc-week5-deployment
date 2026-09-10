@@ -1,0 +1,64 @@
+{
+  "model_name": "lstm_v2_multihorizon",
+  "model_version": "LSTM v2",
+  "dataset": "Jena Climate 2009-2016",
+  "target": "T (degC)",
+  "unit": "degrees Celsius",
+  "history_hours": 72,
+  "horizons_hours": [
+    1,
+    2,
+    6
+  ],
+  "primary_horizons_hours": [
+    1,
+    2
+  ],
+  "horizon_loss_weights": [
+    2.0,
+    2.0,
+    0.5
+  ],
+  "persistence_residual_connection": true,
+  "model_inputs": [
+    "weather_history",
+    "last_temperature_scaled"
+  ],
+  "feature_columns": [
+    "p (mbar)",
+    "T (degC)",
+    "Tpot (K)",
+    "Tdew (degC)",
+    "rh (%)",
+    "VPmax (mbar)",
+    "VPact (mbar)",
+    "VPdef (mbar)",
+    "sh (g/kg)",
+    "H2OC (mmol/mol)",
+    "rho (g/m**3)",
+    "wv (m/s)",
+    "max. wv (m/s)",
+    "wind_dir_sin",
+    "wind_dir_cos",
+    "hour_sin",
+    "hour_cos",
+    "day_of_year_sin",
+    "day_of_year_cos"
+  ],
+  "split": {
+    "train_before": "2015-01-01T00:00:00",
+    "validation_start": "2015-01-01T00:00:00",
+    "test_start": "2016-01-01T00:00:00",
+    "test_end": "2017-01-01T00:00:00"
+  },
+  "calibration_method": "empirical validation residuals with add-one smoothing",
+  "synthetic_contracts": true,
+  "contract_strikes": "round(prediction) plus [-2, -1, 0, 1, 2] degrees Celsius",
+  "parameters": 36739,
+  "epochs_completed": 46,
+  "v1_reference_6h": {
+    "MAE": 1.229071021080017,
+    "RMSE": 1.614332692370595
+  },
+  "training_timestamp_utc": "2026-09-10T18:29:35.306204+00:00"
+}

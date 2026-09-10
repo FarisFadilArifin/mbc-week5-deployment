@@ -1,8 +1,8 @@
-# TempSequence — LSTM dashboard
+# TempSequence — LSTM v2 dashboard
 
-A HuskyWeather-inspired Streamlit dashboard for the Week 3 Jena Climate LSTM experiment.
+A lightweight Streamlit dashboard for the LSTM v2 multi-horizon Jena Climate backtest.
 
-The dashboard visualizes repeated **+6-hour LSTM point forecasts** against observed hourly mean temperature. It is a backtest/evaluation dashboard, not a live EGLC forecast or a Polymarket probability model.
+The interface prioritizes +1h and +2h forecasts, while retaining +6h metrics for comparison with the v1 benchmark. It visualizes precomputed Kaggle exports; it does not load TensorFlow, call a weather API, or claim to be a live station or Kalshi forecast.
 
 ## Run locally
 
@@ -13,62 +13,32 @@ cd D:\dev\mbc-week5-deployment\streamlit_v1
 
 Then open `http://localhost:8501`.
 
-If `artifacts/predictions_v1.csv` exists, the app loads it automatically. You can also upload another CSV from the sidebar.
+The app loads the bundled files from `artifacts/` automatically. Use the sidebar uploader to replace them with a compatible v2 export bundle.
 
-## Prediction CSV format
+## Bundle files
+
+`predictions_v2.csv` is required. The other files are optional and enable their respective panels:
 
 ```text
-timestamp,actual_temperature,lstm_prediction
-2016-01-04 06:00:00,1.20,1.03
+predictions_v2.csv
+threshold_predictions_v2.csv
+experiment_results_v2.csv
+calibration_summary_v2.csv
+model_metadata_v2.json
 ```
 
-Extra columns are ignored. The required columns are `timestamp`, `actual_temperature`, and `lstm_prediction`.
+Upload individual files or a ZIP archive containing these names. The app validates required columns, timestamp offsets, supported horizons, duplicate keys, numeric values, and probability bounds before displaying an upload.
 
-## Kaggle export cell
+## Prediction schema
 
-Run this after the LSTM experiment in Kaggle. It preserves the notebook's finite-window filtering and aligns each prediction with its target timestamp.
-
-```python
-import joblib
-from pathlib import Path
-
-output_dir = Path("/kaggle/working")
-
-def valid_target_times(X, y, timestamps, sequence_length, forecast_horizon=6):
-    valid_times = []
-    for i in range(sequence_length, len(X) - forecast_horizon + 1):
-        window = X.iloc[i-sequence_length:i].values
-        target_index = i + forecast_horizon - 1
-        target = y.iloc[target_index]
-        if np.isfinite(window).all() and np.isfinite(target):
-            valid_times.append(timestamps.iloc[target_index])
-    return pd.to_datetime(valid_times)
-
-lstm_times = valid_target_times(
-    X_test_scaled,
-    y_test,
-    test_df["Date Time"],
-    sequence_length=72,
-)
-
-assert len(lstm_times) == len(datasets[72]["test"][1]) == len(predictions["lstm_A_72"])
-
-dashboard_export = pd.DataFrame({
-    "timestamp": lstm_times,
-    "actual_temperature": datasets[72]["test"][1],
-    "lstm_prediction": predictions["lstm_A_72"],
-})
-dashboard_export.to_csv(output_dir / "predictions_v1.csv", index=False)
-
-models["lstm_A_72"].save(output_dir / "lstm_A_72.keras")
-models["lstm_A_72"].save(output_dir / "lstm_A_72.h5")
-joblib.dump(fitted_scaler, output_dir / "feature_scaler.pkl")
-results_df.to_csv(output_dir / "experiment_results.csv", index=False)
+```text
+as_of_timestamp,target_timestamp,horizon_hours,actual_temperature_c,predicted_temperature_c,lower_10_c,upper_90_c
 ```
 
-The `.keras` file is the recommended Keras format. Keep the `.h5` file as well because the assignment requests a model file in that format.
+The target timestamp must equal the as-of timestamp plus the declared horizon in hours. Supported horizons are +1h, +2h, and +6h.
 
-## Current artifacts
+## Important boundary
 
-The `artifacts/` folder contains the exported LSTM model, scaler, experiment results, and prediction CSV. The dashboard uses the prediction CSV for its chart and metrics; the model and scaler are retained as deployment artifacts.
+The threshold view is a synthetic Kalshi-style demonstration produced from empirical validation residuals. It is not an official Kalshi probability, market price, trading signal, or live weather forecast.
 
+A future live-inference version would need a current 72-hour sequence with the exact 19-feature preprocessing pipeline used by the Kaggle notebook.
