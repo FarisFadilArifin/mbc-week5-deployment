@@ -1,74 +1,45 @@
-# TempSequence — LSTM dashboard
+# MBG Opinion Pulse — IndoBERTweet v1
 
-A HuskyWeather-inspired Streamlit dashboard for the Week 3 Jena Climate LSTM experiment.
+A dark, artifact-backed Streamlit dashboard for the IndoBERTweet MBG public-opinion classifier. It explores the Kaggle test predictions, confidence profiles, sentiment mix, and held-out validation quality.
 
-The dashboard visualizes repeated **+6-hour LSTM point forecasts** against observed hourly mean temperature. It is a backtest/evaluation dashboard, not a live EGLC forecast or a Polymarket probability model.
+The dashboard deliberately does not load the 442 MB model weights during startup. This keeps Streamlit Cloud lightweight and avoids presenting hidden Kaggle test labels as measured outcomes.
 
 ## Run locally
 
 ```powershell
 cd D:\dev\mbc-week5-deployment\streamlit_v1
-& .\.venv313\Scripts\python.exe -m streamlit run app.py
+& .\.venv313\Scripts\python.exe -m streamlit run app.py --server.port 8504
 ```
 
-Then open `http://localhost:8501`.
+Open `http://localhost:8504`.
 
-If `artifacts/predictions_v1.csv` exists, the app loads it automatically. You can also upload another CSV from the sidebar.
+## Bundled artifacts
 
-## Prediction CSV format
+The app reads these files from `artifacts/` by default:
 
 ```text
-timestamp,actual_temperature,lstm_prediction
-2016-01-04 06:00:00,1.20,1.03
+predictions_test.csv
+predictions_validation.csv
+classification_report.csv
+confusion_matrix.csv
+label_mapping.json
+model_metadata.json
+submission.csv
 ```
 
-Extra columns are ignored. The required columns are `timestamp`, `actual_temperature`, and `lstm_prediction`.
+You can also upload `indobertweet_mbg_v1.zip` or an individual `predictions_test.csv` from the sidebar. Uploaded files replace the bundled data for that session.
 
-## Kaggle export cell
+## Prediction schema
 
-Run this after the LSTM experiment in Kaggle. It preserves the notebook's finite-window filtering and aligns each prediction with its target timestamp.
+The required test prediction columns are:
 
-```python
-import joblib
-from pathlib import Path
-
-output_dir = Path("/kaggle/working")
-
-def valid_target_times(X, y, timestamps, sequence_length, forecast_horizon=6):
-    valid_times = []
-    for i in range(sequence_length, len(X) - forecast_horizon + 1):
-        window = X.iloc[i-sequence_length:i].values
-        target_index = i + forecast_horizon - 1
-        target = y.iloc[target_index]
-        if np.isfinite(window).all() and np.isfinite(target):
-            valid_times.append(timestamps.iloc[target_index])
-    return pd.to_datetime(valid_times)
-
-lstm_times = valid_target_times(
-    X_test_scaled,
-    y_test,
-    test_df["Date Time"],
-    sequence_length=72,
-)
-
-assert len(lstm_times) == len(datasets[72]["test"][1]) == len(predictions["lstm_A_72"])
-
-dashboard_export = pd.DataFrame({
-    "timestamp": lstm_times,
-    "actual_temperature": datasets[72]["test"][1],
-    "lstm_prediction": predictions["lstm_A_72"],
-})
-dashboard_export.to_csv(output_dir / "predictions_v1.csv", index=False)
-
-models["lstm_A_72"].save(output_dir / "lstm_A_72.keras")
-models["lstm_A_72"].save(output_dir / "lstm_A_72.h5")
-joblib.dump(fitted_scaler, output_dir / "feature_scaler.pkl")
-results_df.to_csv(output_dir / "experiment_results.csv", index=False)
+```text
+id, comment, predicted_label,
+probability_Negative, probability_Neutral, probability_Positive
 ```
 
-The `.keras` file is the recommended Keras format. Keep the `.h5` file as well because the assignment requests a model file in that format.
+The validation file additionally requires `label`.
 
-## Current artifacts
+## Important boundary
 
-The `artifacts/` folder contains the exported LSTM model, scaler, experiment results, and prediction CSV. The dashboard uses the prediction CSV for its chart and metrics; the model and scaler are retained as deployment artifacts.
-
+The Kaggle competition test labels are hidden. Therefore the test distribution and confidence views are model outputs, not a public-opinion poll. Validation metrics are calculated only from the labeled hold-out split. Live inference can be added later with a separate model-serving deployment.

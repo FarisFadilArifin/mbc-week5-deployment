@@ -1,0 +1,21 @@
+{
+  "model_version": "indobertweet_mbg_v1",
+  "model_type": "BertForSequenceClassification",
+  "base_model": "indolem/indobertweet-base-uncased",
+  "num_labels": 3,
+  "id_column": "id",
+  "text_column": "comment",
+  "label_column": "label",
+  "label_mapping": {
+    "0": "Negative",
+    "1": "Neutral",
+    "2": "Positive"
+  },
+  "max_length": 160,
+  "validation_rows": 891,
+  "competition_test_rows": 1114,
+  "test_labels_available": false,
+  "metrics_split": "validation",
+  "preprocessing": "clean_social_text",
+  "training_steps": 1792
+}
