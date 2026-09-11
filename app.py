@@ -3,13 +3,13 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 from zipfile import BadZipFile, ZipFile
-import html
 import json
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit_shadcn_ui as ui
 
 
 st.set_page_config(
@@ -347,16 +347,14 @@ def fmt_temp(value: float | None) -> str:
 
 
 def metric_card(label: str, value: str, foot: str, state: str = "") -> None:
-    class_name = "metric-card" + (f" {state}" if state else "")
-    st.markdown(
-        f"""
-        <div class="{class_name}">
-            <div class="metric-label">{html.escape(label)}</div>
-            <div class="metric-value">{html.escape(value)}</div>
-            <div class="metric-foot">{html.escape(foot)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    """Render a compact shadcn metric card with a stable dashboard variant."""
+    ui.metric_card(
+        label,
+        value,
+        description=foot,
+        variant="dashboard",
+        size="sm",
+        width="stretch",
     )
 
 
@@ -572,26 +570,30 @@ def main() -> None:
             st.error("The prediction file has no supported horizons (+1h, +2h, +6h).")
             st.stop()
         default_horizon = 1 if 1 in available_horizons else available_horizons[0]
-        horizon = st.selectbox(
+        horizon = ui.select(
             "Primary forecast horizon",
             options=available_horizons,
-            index=available_horizons.index(default_horizon),
+            value=default_horizon,
             format_func=lambda value: f"+{value} hour" if value == 1 else f"+{value} hours",
+            key="primary_horizon",
         )
+        if horizon is None:
+            horizon = default_horizon
         horizon_frame = predictions[predictions["horizon_hours"] == horizon]
         max_window = max(24, min(24 * 30, len(horizon_frame)))
         default_window = min(24 * 7, max_window)
-        visible_window = st.slider(
+        visible_window = ui.slider(
             "Visible target hours",
             min_value=24,
             max_value=max_window,
             value=default_window,
             step=24,
+            key="visible_target_hours",
         )
         st.divider()
         st.markdown("**Data boundary**")
         st.caption("2016 chronological test period\n\nHourly mean temperature\n\n72-hour input history")
-        st.markdown(f'<span class="status-pill info">{source_label}</span>', unsafe_allow_html=True)
+        ui.badge(source_label, variant="outline", key="sidebar_source")
 
     metrics_file = bundle.get("metrics")
     calibration = bundle.get("calibration")
@@ -626,11 +628,15 @@ def main() -> None:
         '<div class="hero-copy">A 72-hour LSTM backtest with direct +1h, +2h, and +6h forecasts. The primary view follows the short horizons while preserving transparent benchmark and calibration evidence.</div>',
         unsafe_allow_html=True,
     )
-    status_class = "good" if beats_persistence else ""
     status_text = "MODEL BEATS PERSISTENCE" if beats_persistence else "BACKTEST · REVIEW BASELINE"
-    st.markdown(
-        f'<div class="status-row"><span class="status-pill {status_class}">● {status_text}</span><span class="status-pill info">● +{horizon}H SELECTED</span><span class="status-pill">● SYNTHETIC CONTRACTS</span></div>',
-        unsafe_allow_html=True,
+    ui.badges(
+        [
+            (f"● {status_text}", "default" if beats_persistence else "outline"),
+            (f"● +{horizon}H SELECTED", "secondary"),
+            ("● SYNTHETIC CONTRACTS", "destructive"),
+        ],
+        key="status_badges",
+        width="stretch",
     )
 
     st.markdown('<div class="section-kicker">SELECTED HORIZON SNAPSHOT</div>', unsafe_allow_html=True)
@@ -661,11 +667,22 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    monitor_tab, contracts_tab, calibration_tab, benchmark_tab = st.tabs(
-        ["Forecast monitor", "Synthetic contracts", "Calibration", "Benchmark & model"]
+    active_tab = ui.tabs(
+        ["monitor", "contracts", "calibration", "benchmark"],
+        value="monitor",
+        format_func=lambda value: {
+            "monitor": "Forecast monitor",
+            "contracts": "Synthetic contracts",
+            "calibration": "Calibration",
+            "benchmark": "Benchmark & model",
+        }[value],
+        key="dashboard_tabs",
+        label="Dashboard sections",
+        variant="line",
+        width="stretch",
     )
 
-    with monitor_tab:
+    if active_tab == "monitor":
         chart_left, chart_right = st.columns([2.25, 1])
         with chart_left:
             st.markdown('<div class="panel-title">Observed versus forecast</div>', unsafe_allow_html=True)
@@ -688,7 +705,7 @@ def main() -> None:
         st.markdown('<div class="section-kicker">FORECAST RECORDS</div>', unsafe_allow_html=True)
         display_prediction_table(selected)
 
-    with contracts_tab:
+    elif active_tab == "contracts":
         if thresholds is None:
             st.info("No threshold_predictions_v2.csv was included in this upload. Upload the companion file or a complete ZIP bundle to enable this panel.")
         else:
@@ -700,12 +717,15 @@ def main() -> None:
             if not threshold_targets:
                 st.info("No threshold rows match the selected horizon and visible forecast window.")
             else:
-                target_choice = st.selectbox(
+                target_choice = ui.select(
                     "Contract target timestamp",
                     options=threshold_targets,
-                    index=len(threshold_targets) - 1,
+                    value=threshold_targets[-1],
                     format_func=lambda value: pd.Timestamp(value).strftime("%d %b %Y · %H:%M"),
+                    key="contract_target_timestamp",
                 )
+                if target_choice is None:
+                    target_choice = threshold_targets[-1]
                 contract_rows = thresholds[
                     (thresholds["horizon_hours"] == horizon)
                     & (thresholds["target_timestamp"] == target_choice)
@@ -734,7 +754,7 @@ def main() -> None:
                     )
                 st.markdown('<div class="danger-note"><strong>Synthetic only:</strong> these probabilities are derived from validation residuals and forecast-centred strikes. They are not official Kalshi market prices or probabilities.</div>', unsafe_allow_html=True)
 
-    with calibration_tab:
+    elif active_tab == "calibration":
         if calibration is None:
             st.info("No calibration_summary_v2.csv was included in this upload.")
         else:
@@ -753,7 +773,7 @@ def main() -> None:
                 st.dataframe(calibration_table, hide_index=True, width="stretch", height=390)
             st.markdown('<div class="truth-note">Calibration is evaluated on the synthetic threshold contracts generated from validation residuals. Good reliability does not make these official market probabilities.</div>', unsafe_allow_html=True)
 
-    with benchmark_tab:
+    elif active_tab == "benchmark":
         if metrics_file is None:
             st.info("No experiment_results_v2.csv was included; metrics are computed from the prediction rows and persistence comparisons are unavailable.")
         else:

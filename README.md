@@ -1,6 +1,6 @@
 # TempSequence — LSTM v2 dashboard
 
-A lightweight Streamlit dashboard for the LSTM v2 multi-horizon Jena Climate backtest.
+A lightweight Streamlit dashboard for the LSTM v2 multi-horizon Jena Climate backtest. The controls, navigation, status badges, and metric cards use `streamlit-shadcn-ui`; Plotly remains in place for the interval and calibration charts.
 
 The interface prioritizes +1h and +2h forecasts, while retaining +6h metrics for comparison with the v1 benchmark. It visualizes precomputed Kaggle exports; it does not load TensorFlow, call a weather API, or claim to be a live station or Kalshi forecast.
 
@@ -12,6 +12,8 @@ cd D:\dev\mbc-week5-deployment\streamlit_v1
 ```
 
 Then open `http://localhost:8501`.
+
+The deployment pins Streamlit 1.63 and `streamlit-shadcn-ui` 1.4 because the shadcn Components V2 package requires Streamlit 1.60 or newer.
 
 The app loads the bundled files from `artifacts/` automatically. Use the sidebar uploader to replace them with a compatible v2 export bundle.
 
