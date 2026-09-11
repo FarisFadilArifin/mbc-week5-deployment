@@ -4,6 +4,10 @@ A HuskyWeather-inspired Streamlit dashboard for the Week 3 Jena Climate LSTM exp
 
 The dashboard visualizes repeated **+6-hour LSTM point forecasts** against observed hourly mean temperature. It is a backtest/evaluation dashboard, not a live EGLC forecast or a Polymarket probability model.
 
+## Deployment
+
+The v1 app is deployed at [lstm-temperature-v1.streamlit.app](https://lstm-temperature-v1.streamlit.app/). It displays precomputed Kaggle predictions and does not call a weather API or run live inference.
+
 ## Run locally
 
 ```powershell
@@ -70,5 +74,5 @@ The `.keras` file is the recommended Keras format. Keep the `.h5` file as well b
 
 ## Current artifacts
 
-The `artifacts/` folder contains the exported LSTM model, scaler, experiment results, and prediction CSV. The dashboard uses the prediction CSV for its chart and metrics; the model and scaler are retained as deployment artifacts.
+The `artifacts/` folder contains the exported LSTM model, scaler, experiment results, and prediction CSV. The dashboard uses the prediction CSV for its chart and metrics; the model and scaler are retained for reproducibility and are not loaded at startup.
 
