@@ -662,14 +662,9 @@ def main() -> None:
             state = "best" if card_horizon in PRIMARY_HORIZONS and status == "beats persistence" else ""
             metric_card(f"+{card_horizon}H · TEST MAE", fmt_temp(mae_value), f"RMSE {fmt_temp(rmse_value)} · {status}", state)
 
-    st.markdown(
-        '<div class="truth-note"><strong>Interpretation boundary:</strong> this is a Jena Climate 2016 backtest using exported predictions. The threshold panel is a synthetic Kalshi-style demonstration—not an official Kalshi probability, live station forecast, or trading signal.</div>',
-        unsafe_allow_html=True,
-    )
-
     active_tab = ui.tabs(
-        ["monitor", "contracts", "calibration", "benchmark"],
-        value="monitor",
+        ["contracts", "monitor", "calibration", "benchmark"],
+        value="contracts",
         format_func=lambda value: {
             "monitor": "Forecast monitor",
             "contracts": "Synthetic contracts",
