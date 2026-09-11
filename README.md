@@ -4,6 +4,17 @@ A HuskyWeather-inspired Streamlit dashboard for the Week 3 Jena Climate LSTM exp
 
 The dashboard visualizes repeated **+6-hour LSTM point forecasts** against observed hourly mean temperature. It is a backtest/evaluation dashboard, not a live EGLC forecast or a Polymarket probability model.
 
+This repository keeps each assignment deliverable on its own branch:
+
+| Deliverable | Branch | Streamlit app |
+| --- | --- | --- |
+| LSTM temperature v1 | `lstm-temperature-v1` | [lstm-temperature-v1.streamlit.app](https://lstm-temperature-v1.streamlit.app/) |
+| LSTM temperature v2 | `lstm-temperature-v2` | [lstm-temperature-v2.streamlit.app](https://lstm-temperature-v2.streamlit.app/) |
+| IndoBERTweet MBG v1 | `indobertweet-mbg-v1` | [indobertweet-mbg-v1.streamlit.app](https://indobertweet-mbg-v1.streamlit.app/) |
+| IndoBERTweet MBG v2 | `indobertweet-mbg-v2` | [indobertweet-mbg-v2.streamlit.app](https://indobertweet-mbg-v2.streamlit.app/) |
+
+The `main` branch is the baseline LSTM v1 snapshot. Use the named branches for the corresponding deployed version.
+
 ## Run locally
 
 ```powershell
