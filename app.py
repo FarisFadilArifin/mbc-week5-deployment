@@ -457,12 +457,7 @@ def forecast_chart(frame: pd.DataFrame, horizon: int) -> go.Figure:
 def threshold_chart(frame: pd.DataFrame) -> go.Figure:
     ordered = frame.sort_values("strike_c").copy()
     labels = [f"{value:.0f}°C" for value in ordered["strike_c"]]
-    forecast_value = float(ordered["predicted_temperature_c"].iloc[0])
-    closest_index = (ordered["strike_c"] - forecast_value).abs().idxmin()
-    colors = [
-        "#f5f5f5" if index == closest_index else ("#4b160f" if bool(value) else "#1b0d09")
-        for index, value in zip(ordered.index, ordered["observed_yes"])
-    ]
+    colors = ["#26e0a5" if bool(value) else "#657583" for value in ordered["observed_yes"]]
     figure = go.Figure(
         go.Bar(
             x=labels,
@@ -479,11 +474,11 @@ def threshold_chart(frame: pd.DataFrame) -> go.Figure:
             x=labels,
             y=ordered["probability_yes"] * 100,
             mode="lines+markers",
-            line={"color": "#f7f7f7", "width": 2.2},
-            marker={"color": "#f7f7f7", "size": 6, "line": {"color": "#17100d", "width": 1}},
+            line={"color": "#72d9ff", "width": 2.2},
+            marker={"color": "#72d9ff", "size": 6, "line": {"color": "#131a21", "width": 1}},
             text=[f"{value * 100:.1f}%" for value in ordered["probability_yes"]],
             textposition="top center",
-            textfont={"color": "#fff7f2", "size": 11},
+            textfont={"color": "#aab8c4", "size": 11},
             name="Probability",
             hovertemplate="Strike %{x}<br>Probability YES: %{y:.1f}%<extra></extra>",
         )
@@ -491,11 +486,11 @@ def threshold_chart(frame: pd.DataFrame) -> go.Figure:
     figure.update_layout(
         height=360,
         margin={"l": 16, "r": 16, "t": 28, "b": 24},
-        paper_bgcolor="#d94a29",
-        plot_bgcolor="#d94a29",
-        font={"color": "#fff7f2", "family": "Inter, sans-serif"},
-        yaxis={"title": "Synthetic probability (%)", "range": [0, 108], "gridcolor": "rgba(83, 25, 17, .35)", "zeroline": False},
-        xaxis={"title": "Threshold strike", "gridcolor": "rgba(83, 25, 17, .25)", "linecolor": "rgba(83, 25, 17, .35)"},
+        paper_bgcolor="#131a21",
+        plot_bgcolor="#131a21",
+        font={"color": "#aab8c4", "family": "Inter, sans-serif"},
+        yaxis={"title": "Synthetic probability (%)", "range": [0, 108], "gridcolor": "#27333c", "zeroline": False},
+        xaxis={"title": "Threshold strike", "gridcolor": "#27333c", "linecolor": "#27333c"},
         showlegend=False,
     )
     return figure
@@ -713,28 +708,34 @@ def main() -> None:
                     thresholds.loc[thresholds["horizon_hours"] == horizon, "target_timestamp"]
                 )
             )
+            all_threshold_targets = sorted(
+                set(thresholds.loc[thresholds["horizon_hours"] == horizon, "target_timestamp"])
+            )
             if not threshold_targets:
                 st.info("No threshold rows match the selected horizon and visible forecast window.")
             else:
                 stored_target = st.session_state.get("contract_target_default", threshold_targets[-1])
                 if stored_target not in threshold_targets:
-                    stored_target = threshold_targets[-1]
+                    target_options = sorted(set(threshold_targets + [stored_target]))
+                else:
+                    target_options = threshold_targets
                 target_control, random_control = st.columns([4, 1])
                 with target_control:
                     target_choice = ui.select(
                         "Contract target timestamp",
-                        options=threshold_targets,
+                        options=target_options,
                         value=stored_target,
                         format_func=lambda value: pd.Timestamp(value).strftime("%d %b %Y · %H:%M"),
                         key="contract_target_timestamp",
                     )
                 if target_choice is None:
                     target_choice = stored_target
+                st.session_state["contract_target_default"] = target_choice
                 with random_control:
                     st.markdown('<div class="small-muted" style="margin-top: 1.75rem;">Explore history</div>', unsafe_allow_html=True)
                     if ui.button("↻ Randomize", variant="secondary", size="sm", key="randomize_contract_timestamp", width="stretch"):
-                        candidates = [value for value in threshold_targets if value != target_choice]
-                        st.session_state["contract_target_default"] = random.choice(candidates or threshold_targets)
+                        candidates = [value for value in all_threshold_targets if value != target_choice]
+                        st.session_state["contract_target_default"] = random.choice(candidates or all_threshold_targets)
                         st.rerun()
                 contract_rows = thresholds[
                     (thresholds["horizon_hours"] == horizon)
