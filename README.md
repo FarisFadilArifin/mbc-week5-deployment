@@ -4,6 +4,13 @@ Indonesian-first Streamlit application for the regularized five-fold IndoBERTwee
 
 The v2 test set is unlabeled. Its distribution is therefore a model-output view, not a measured opinion poll.
 
+## Deployment
+
+- Streamlit Cloud: [indobertweet-mbg-v2.streamlit.app](https://indobertweet-mbg-v2.streamlit.app/)
+- Hugging Face model repository: [FarisFadilArifin/indobertweet-mbg-v2](https://huggingface.co/FarisFadilArifin/indobertweet-mbg-v2)
+
+The deployed app loads the best-fold model lazily from Hugging Face. The repository must contain the model weights, tokenizer, and configuration files; `HF_MODEL_ID` and (for private repositories) `HF_TOKEN` are configured in Streamlit secrets.
+
 ## Local run
 
 Use Python 3.12 for live inference, matching Streamlit Community Cloud’s default runtime:
@@ -40,7 +47,7 @@ For local testing, extract the best-fold model to:
 artifacts/indobertweet_model/
 ```
 
-For Streamlit Cloud, upload that folder to a private Hugging Face model repository and configure these secrets:
+For Streamlit Cloud, upload that folder to a Hugging Face model repository and configure these secrets:
 
 ```toml
 HF_MODEL_ID = "your-account/indobertweet-mbg-v2"
