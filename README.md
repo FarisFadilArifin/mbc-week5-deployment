@@ -43,3 +43,13 @@ The validation file additionally requires `label`.
 ## Important boundary
 
 The Kaggle competition test labels are hidden. Therefore the test distribution and confidence views are model outputs, not a public-opinion poll. Validation metrics are calculated only from the labeled hold-out split. Live inference can be added later with a separate model-serving deployment.
+
+## v2 training notebook
+
+The `indobertweet-mbg-v2` branch includes:
+
+```text
+notebooks/indobertweet_mbg_v2_5fold.ipynb
+```
+
+Run it on Kaggle with a GPU. It trains five stratified IndoBERTweet folds with stronger dropout, weight decay, label smoothing, gradient clipping, and early stopping. It exports out-of-fold validation metrics plus probability-averaged test predictions under `/kaggle/working/indobertweet_mbg_v2/`.
