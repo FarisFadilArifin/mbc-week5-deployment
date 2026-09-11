@@ -24,10 +24,11 @@ st.set_page_config(
 ARTIFACT_DIR = Path(__file__).resolve().parent / "artifacts"
 LABEL_ORDER = ["Negative", "Neutral", "Positive"]
 LABEL_COLORS = {
-    "Negative": "#ff6b7a",
-    "Neutral": "#8394a8",
-    "Positive": "#2fe3ae",
+    "Negative": "#d85267",
+    "Neutral": "#6b7f97",
+    "Positive": "#258f78",
 }
+UI_ACCENT = "#2f73d9"
 PROBABILITY_COLUMNS = {label: f"probability_{label}" for label in LABEL_ORDER}
 MAX_COMMENT_LENGTH = 1000
 V2_ARTIFACT_NAMES = {
@@ -52,52 +53,68 @@ def inject_styles() -> None:
         """
         <style>
         :root {
-            --bg: #070a0e;
-            --panel: #10161d;
-            --panel-2: #141c24;
-            --line: #27323e;
-            --text: #edf3f8;
-            --muted: #8b9aaa;
-            --mint: #2fe3ae;
-            --cyan: #75d8ff;
-            --amber: #f1c66d;
+            --bg: #f3f6fb;
+            --panel: #ffffff;
+            --panel-2: #f8fafd;
+            --line: #d8e1ec;
+            --text: #162235;
+            --muted: #66768a;
+            --blue: #2f73d9;
+            --blue-dark: #1f56b0;
+            --blue-soft: #eaf2ff;
+            --amber: #a56713;
         }
         .stApp { background: var(--bg); color: var(--text); }
-        [data-testid="stHeader"] { background: rgba(7,10,14,.92); }
-        [data-testid="stSidebar"] { background: #0b1015; border-right: 1px solid var(--line); }
-        .block-container { max-width: 1380px; padding-top: 1.7rem; padding-bottom: 4rem; }
+        [data-testid="stHeader"] { background: rgba(243,246,251,.94); }
+        [data-testid="stSidebar"] { background: #ffffff; border-right: 1px solid var(--line); }
+        [data-testid="stSidebar"] > div:first-child { padding: 1.35rem 1.1rem 2rem; }
+        .block-container { max-width: 1240px; padding: 2.15rem 2.5rem 4rem; }
+        [data-testid="stHorizontalBlock"] { align-items: stretch; gap: 1rem; }
+        [data-testid="stColumn"] { min-width: 0; }
+        .stMarkdown { margin-bottom: 0; }
         .brand { font-size: 1.24rem; font-weight: 850; letter-spacing: -.04em; }
-        .brand span { color: var(--mint); }
+        .brand span { color: var(--blue); }
         .side-copy { color: var(--muted); font-size: .76rem; line-height: 1.45; }
-        .eyebrow { color: var(--mint); font: 700 .66rem/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: .17em; }
-        .hero-title { font-size: clamp(2.05rem, 4vw, 3.65rem); line-height: 1.02; margin: .42rem 0 .55rem; letter-spacing: -.058em; }
-        .hero-copy { color: var(--muted); max-width: 800px; font-size: .96rem; line-height: 1.55; }
-        .source-line { color: var(--muted); font: 700 .66rem/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: .08em; text-transform: uppercase; margin-top: .8rem; }
+        .eyebrow { color: var(--blue); font: 700 .66rem/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: .17em; }
+        .hero-title { font-size: clamp(2.05rem, 4vw, 3.65rem); line-height: 1.02; margin: .42rem 0 .55rem; letter-spacing: -.058em; color: var(--text); }
+        .hero-copy { color: var(--muted); max-width: 800px; font-size: .96rem; line-height: 1.55; margin-bottom: .2rem; }
+        .source-line { color: var(--muted); font: 700 .66rem/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: .08em; text-transform: uppercase; margin: .7rem 0 0; }
         .status-pill { display: inline-block; padding: .27rem .56rem; border-radius: 999px; font: 700 .63rem/1 ui-monospace, SFMono-Regular, monospace; letter-spacing: .05em; }
-        .status-pill.green { color: #9dffdf; background: #0c2b24; border: 1px solid #1b755e; }
-        .status-pill.amber { color: #f7dda1; background: #2b2110; border: 1px solid #866626; }
-        .metric-card { background: linear-gradient(145deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: 12px; padding: .74rem .86rem; min-height: 101px; }
+        .status-pill.green { color: var(--blue-dark); background: var(--blue-soft); border: 1px solid #9bbde8; }
+        .status-pill.amber { color: #8a5a16; background: #fff5df; border: 1px solid #e6c98f; }
+        .metric-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: .78rem .92rem; min-height: 92px; box-shadow: 0 6px 18px rgba(37,67,108,.06); }
         .metric-label { color: var(--muted); font: 700 .62rem/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: .1em; text-transform: uppercase; }
         .metric-value { font-size: 1.62rem; font-weight: 820; letter-spacing: -.04em; margin: .42rem 0 .12rem; }
         .metric-foot { color: var(--muted); font-size: .71rem; }
-        .section-kicker { color: var(--cyan); font: 700 .64rem/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: .14em; text-transform: uppercase; margin: 1.24rem 0 .42rem; }
-        .input-panel { background: linear-gradient(145deg, #151e27, #10161d); border: 1px solid #355164; border-radius: 15px; padding: 1.15rem 1.2rem .95rem; }
+        .section-kicker { color: var(--blue-dark); font: 700 .64rem/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: .14em; text-transform: uppercase; margin: 1.55rem 0 .52rem; }
+        .input-panel { background: linear-gradient(145deg, #ffffff, #f5f9ff); border: 1px solid #b9d0ed; border-radius: 15px; padding: 1.05rem 1.15rem .9rem; box-shadow: 0 8px 24px rgba(37,67,108,.07); margin-bottom: .8rem; }
         .input-title { font-size: 1.05rem; font-weight: 780; }
         .input-subtitle { color: var(--muted); font-size: .76rem; margin: .22rem 0 .8rem; }
-        .result-panel { background: linear-gradient(145deg, #141c24, #10161d); border: 1px solid var(--line); border-radius: 14px; padding: 1.08rem 1.15rem; min-height: 220px; }
+        .result-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 1rem 1.08rem; min-height: 198px; box-shadow: 0 8px 24px rgba(37,67,108,.06); }
         .result-label { color: var(--muted); font: 700 .63rem/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: .11em; text-transform: uppercase; }
         .result-sentiment { font-size: 1.85rem; font-weight: 850; letter-spacing: -.045em; margin: .34rem 0 .1rem; }
-        .comment-panel { background: linear-gradient(145deg, #141c24, #10161d); border: 1px solid var(--line); border-radius: 14px; padding: 1rem 1.05rem; min-height: 170px; }
-        .comment-text { font-size: 1.02rem; line-height: 1.5; margin: .65rem 0 .9rem; color: #f3f7fa; }
+        .comment-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 1rem 1.05rem; min-height: 170px; box-shadow: 0 8px 24px rgba(37,67,108,.06); }
+        .comment-text { font-size: 1.02rem; line-height: 1.5; margin: .65rem 0 .9rem; color: var(--text); }
         .prediction-chip { display: inline-block; border-radius: 999px; padding: .38rem .68rem; font-weight: 800; font-size: .76rem; }
         .panel-title { font-size: 1.01rem; font-weight: 760; margin: 0; }
         .panel-subtitle { color: var(--muted); font-size: .73rem; margin-top: .18rem; }
         .small-note { color: var(--muted); font-size: .73rem; line-height: 1.45; }
-        .callout { background: #0d1a22; border-left: 3px solid var(--cyan); padding: .72rem .86rem; border-radius: 0 8px 8px 0; color: #bfd0dd; font-size: .76rem; line-height: 1.5; }
-        .warning-callout { background: #2b2110; border-left: 3px solid var(--amber); padding: .72rem .86rem; border-radius: 0 8px 8px 0; color: #f4d99b; font-size: .76rem; line-height: 1.5; }
-        .stTabs [data-baseweb="tab-list"] { gap: 1.05rem; border-bottom: 1px solid var(--line); }
-        .stTabs [aria-selected="true"] { color: var(--mint) !important; }
+        .callout { background: #eef6ff; border-left: 3px solid var(--blue); padding: .72rem .86rem; border-radius: 0 8px 8px 0; color: #3d5874; font-size: .76rem; line-height: 1.5; }
+        .warning-callout { background: #fff8e9; border-left: 3px solid var(--amber); padding: .72rem .86rem; border-radius: 0 8px 8px 0; color: #7a5a25; font-size: .76rem; line-height: 1.5; }
+        .stTabs [data-baseweb="tab-list"] { gap: 1.05rem; border-bottom: 1px solid var(--line); margin-top: .55rem; }
+        .stTabs [data-baseweb="tab"] { padding: .62rem .18rem; }
+        .stTabs [aria-selected="true"] { color: var(--blue-dark) !important; }
+        .stButton > button { border-radius: 9px; min-height: 2.45rem; border-color: #b9c9dc; }
+        .stButton > button[kind="primary"] { background: var(--blue); border-color: var(--blue); color: #ffffff; }
+        .stButton > button[kind="primary"]:hover { background: var(--blue-dark); border-color: var(--blue-dark); }
+        .stTextArea textarea, .stTextInput input { background: #ffffff; color: var(--text); border-color: #b9c9dc; border-radius: 9px; }
+        [data-baseweb="select"] > div { background: #ffffff; border-color: #b9c9dc; }
         div[data-testid="stDataFrame"] { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+        @media (max-width: 768px) {
+            .block-container { padding: 1.2rem 1rem 2.5rem; }
+            .hero-title { font-size: 2.25rem; }
+            [data-testid="stHorizontalBlock"] { gap: .7rem; }
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -284,11 +301,11 @@ def distribution_chart(frame: pd.DataFrame) -> go.Figure:
     figure.update_layout(
         height=320,
         margin={"l": 8, "r": 8, "t": 28, "b": 8},
-        paper_bgcolor="#10161d",
-        plot_bgcolor="#10161d",
-        font={"color": "#b8c5d1", "family": "Inter, sans-serif"},
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#f8fafd",
+        font={"color": "#435468", "family": "Inter, sans-serif"},
         xaxis={"showgrid": False},
-        yaxis={"title": "Komentar", "gridcolor": "#27323e", "zeroline": False},
+        yaxis={"title": "Komentar", "gridcolor": "#d9e2ee", "zeroline": False},
         showlegend=False,
     )
     return figure
@@ -309,10 +326,10 @@ def probability_chart(probabilities: dict[str, float]) -> go.Figure:
     figure.update_layout(
         height=245,
         margin={"l": 5, "r": 38, "t": 8, "b": 8},
-        paper_bgcolor="#141c24",
-        plot_bgcolor="#141c24",
-        font={"color": "#b8c5d1", "family": "Inter, sans-serif"},
-        xaxis={"range": [0, 108], "ticksuffix": "%", "gridcolor": "#27323e"},
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#f8fafd",
+        font={"color": "#435468", "family": "Inter, sans-serif"},
+        xaxis={"range": [0, 108], "ticksuffix": "%", "gridcolor": "#d9e2ee"},
         yaxis={"showgrid": False},
         showlegend=False,
     )
@@ -325,7 +342,7 @@ def confusion_chart(frame: pd.DataFrame) -> go.Figure:
         z=matrix.to_numpy(),
         x=LABEL_ORDER,
         y=LABEL_ORDER,
-        colorscale=[[0, "#111820"], [0.5, "#1d6a63"], [1, "#2fe3ae"]],
+        colorscale=[[0, "#edf3fb"], [0.5, "#8bb6e8"], [1, "#2f73d9"]],
         text=matrix.to_numpy(),
         texttemplate="%{text}",
         hovertemplate="Aktual %{y}<br>Prediksi %{x}: %{z}<extra></extra>",
@@ -334,9 +351,9 @@ def confusion_chart(frame: pd.DataFrame) -> go.Figure:
     figure.update_layout(
         height=320,
         margin={"l": 8, "r": 8, "t": 8, "b": 8},
-        paper_bgcolor="#10161d",
-        plot_bgcolor="#10161d",
-        font={"color": "#b8c5d1", "family": "Inter, sans-serif"},
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#f8fafd",
+        font={"color": "#435468", "family": "Inter, sans-serif"},
         xaxis={"title": "Prediksi"},
         yaxis={"title": "Aktual", "autorange": "reversed"},
     )
@@ -345,9 +362,9 @@ def confusion_chart(frame: pd.DataFrame) -> go.Figure:
 
 def confidence_tier(confidence: float) -> tuple[str, str]:
     if confidence >= 0.80:
-        return "TINGGI", LABEL_COLORS["Positive"]
+        return "TINGGI", UI_ACCENT
     if confidence >= 0.60:
-        return "PERLU REVIEW", "#f1c66d"
+        return "PERLU REVIEW", "#a56713"
     return "RENDAH", LABEL_COLORS["Negative"]
 
 
@@ -494,10 +511,10 @@ st.markdown('<div class="section-kicker">Ringkasan model</div>', unsafe_allow_ht
 kpis = st.columns(4)
 with kpis[0]:
     value = f"{metric_value(metrics, 'macro avg', 'f1-score'):.3f}" if metrics is not None else "—"
-    metric_card("OOF macro F1", value, "5-fold validation", LABEL_COLORS["Positive"])
+    metric_card("OOF macro F1", value, "5-fold validation", UI_ACCENT)
 with kpis[1]:
     value = f"{metric_value(metrics, 'accuracy', 'f1-score'):.1%}" if metrics is not None else "—"
-    metric_card("OOF accuracy", value, "bukan skor test tersembunyi", LABEL_COLORS["Positive"])
+    metric_card("OOF accuracy", value, "bukan skor test tersembunyi", UI_ACCENT)
 with kpis[2]:
     metric_card("Test comments", f"{len(predictions):,}" if predictions is not None else "—", "prediksi Kaggle v2", LABEL_COLORS["Neutral"])
 with kpis[3]:
@@ -632,8 +649,8 @@ with tabs[2]:
             fold_plot = folds_raw.copy()
             fold_plot["fold"] = fold_plot["fold"].astype(str)
             fold_plot["macro_f1"] = pd.to_numeric(fold_plot["macro_f1"], errors="coerce")
-            figure = go.Figure(go.Bar(x=fold_plot["fold"], y=fold_plot["macro_f1"], marker_color="#2fe3ae", text=fold_plot["macro_f1"].map(lambda value: f"{value:.3f}"), textposition="outside"))
-            figure.update_layout(height=260, margin={"l": 8, "r": 8, "t": 25, "b": 8}, paper_bgcolor="#10161d", plot_bgcolor="#10161d", font={"color": "#b8c5d1"}, yaxis={"range": [0, 1], "gridcolor": "#27323e", "title": "Macro F1"}, xaxis={"title": "Fold"}, showlegend=False)
+            figure = go.Figure(go.Bar(x=fold_plot["fold"], y=fold_plot["macro_f1"], marker_color="#2f73d9", text=fold_plot["macro_f1"].map(lambda value: f"{value:.3f}"), textposition="outside"))
+            figure.update_layout(height=260, margin={"l": 8, "r": 8, "t": 25, "b": 8}, paper_bgcolor="#ffffff", plot_bgcolor="#f8fafd", font={"color": "#435468"}, yaxis={"range": [0, 1], "gridcolor": "#d9e2ee", "title": "Macro F1"}, xaxis={"title": "Fold"}, showlegend=False)
             st.markdown('<div class="section-kicker">Skor setiap fold</div>', unsafe_allow_html=True)
             st.plotly_chart(figure, width="stretch", config={"displayModeBar": False})
 
