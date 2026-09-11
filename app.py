@@ -3,7 +3,9 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 from zipfile import BadZipFile, ZipFile
+import html
 import json
+import random
 
 import numpy as np
 import pandas as pd
@@ -29,7 +31,6 @@ KNOWN_FILES = {
     "model_metadata_v2.json",
 }
 SUPPORTED_HORIZONS = (1, 2, 6)
-PRIMARY_HORIZONS = (1, 2)
 
 PREDICTION_COLUMNS = {
     "as_of_timestamp",
@@ -126,6 +127,14 @@ def inject_styles() -> None:
         div[data-testid="stDataFrame"] { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
         div[data-testid="stMetric"] { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: .7rem .8rem; }
         .small-muted { color: var(--muted); font-size: .76rem; }
+        .mini-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem; margin: .8rem 0 1rem; }
+        .mini-stat { background: #0c1218; border: 1px solid var(--border); border-radius: 10px; padding: .62rem .72rem; min-height: 70px; }
+        .mini-stat-label { color: var(--muted); font: 700 .61rem/1.2 ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; }
+        .mini-stat-value { color: var(--text); font-size: 1.08rem; font-weight: 750; margin: .3rem 0 .08rem; letter-spacing: -.025em; }
+        .mini-stat-foot { color: var(--muted); font-size: .69rem; line-height: 1.25; }
+        .contract-kicker { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
+        .contract-chip { display: inline-flex; align-items: center; border: 1px solid rgba(255, 227, 215, .55); background: rgba(54, 16, 10, .35); color: #fff7f2; padding: .28rem .58rem; border-radius: 999px; font: 700 .67rem/1.1 ui-monospace, monospace; white-space: nowrap; }
+        @media (max-width: 800px) { .mini-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         </style>
         """,
         unsafe_allow_html=True,
@@ -346,16 +355,16 @@ def fmt_temp(value: float | None) -> str:
     return "—" if value is None or not np.isfinite(value) else f"{value:.2f}°C"
 
 
-def metric_card(label: str, value: str, foot: str, state: str = "") -> None:
-    """Render a compact shadcn metric card with a stable dashboard variant."""
-    ui.metric_card(
-        label,
-        value,
-        description=foot,
-        variant="dashboard",
-        size="sm",
-        width="stretch",
-    )
+def compact_stats(items: list[tuple[str, str, str]]) -> None:
+    """Render small inline context stats below the primary panel."""
+    cards = []
+    for label, value, foot in items:
+        cards.append(
+            f'<div class="mini-stat"><div class="mini-stat-label">{html.escape(label)}</div>'
+            f'<div class="mini-stat-value">{html.escape(value)}</div>'
+            f'<div class="mini-stat-foot">{html.escape(foot)}</div></div>'
+        )
+    st.markdown(f'<div class="mini-stat-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
 
 
 def benchmark_rows(predictions: pd.DataFrame, metrics: pd.DataFrame | None) -> pd.DataFrame:
@@ -448,7 +457,12 @@ def forecast_chart(frame: pd.DataFrame, horizon: int) -> go.Figure:
 def threshold_chart(frame: pd.DataFrame) -> go.Figure:
     ordered = frame.sort_values("strike_c").copy()
     labels = [f"{value:.0f}°C" for value in ordered["strike_c"]]
-    colors = ["#26e0a5" if value else "#657583" for value in ordered["observed_yes"]]
+    forecast_value = float(ordered["predicted_temperature_c"].iloc[0])
+    closest_index = (ordered["strike_c"] - forecast_value).abs().idxmin()
+    colors = [
+        "#f5f5f5" if index == closest_index else ("#4b160f" if bool(value) else "#1b0d09")
+        for index, value in zip(ordered.index, ordered["observed_yes"])
+    ]
     figure = go.Figure(
         go.Bar(
             x=labels,
@@ -460,14 +474,28 @@ def threshold_chart(frame: pd.DataFrame) -> go.Figure:
             hovertemplate="Strike %{x}<br>Probability YES: %{y:.1f}%<extra></extra>",
         )
     )
+    figure.add_trace(
+        go.Scatter(
+            x=labels,
+            y=ordered["probability_yes"] * 100,
+            mode="lines+markers",
+            line={"color": "#f7f7f7", "width": 2.2},
+            marker={"color": "#f7f7f7", "size": 6, "line": {"color": "#17100d", "width": 1}},
+            text=[f"{value * 100:.1f}%" for value in ordered["probability_yes"]],
+            textposition="top center",
+            textfont={"color": "#fff7f2", "size": 11},
+            name="Probability",
+            hovertemplate="Strike %{x}<br>Probability YES: %{y:.1f}%<extra></extra>",
+        )
+    )
     figure.update_layout(
-        height=330,
-        margin={"l": 10, "r": 10, "t": 20, "b": 10},
-        paper_bgcolor="#131a21",
-        plot_bgcolor="#131a21",
-        font={"color": "#aab8c4", "family": "Inter, sans-serif"},
-        yaxis={"title": "Synthetic probability (%)", "range": [0, 108], "gridcolor": "#27333c"},
-        xaxis={"title": "Threshold strike"},
+        height=360,
+        margin={"l": 16, "r": 16, "t": 28, "b": 24},
+        paper_bgcolor="#d94a29",
+        plot_bgcolor="#d94a29",
+        font={"color": "#fff7f2", "family": "Inter, sans-serif"},
+        yaxis={"title": "Synthetic probability (%)", "range": [0, 108], "gridcolor": "rgba(83, 25, 17, .35)", "zeroline": False},
+        xaxis={"title": "Threshold strike", "gridcolor": "rgba(83, 25, 17, .25)", "linecolor": "rgba(83, 25, 17, .35)"},
         showlegend=False,
     )
     return figure
@@ -610,7 +638,6 @@ def main() -> None:
     latest_error = abs(float(latest["predicted_temperature_c"]) - float(latest["actual_temperature_c"]))
     current_row = horizon_row(metrics, horizon)
     selected_mae = float(np.mean(np.abs(selected["predicted_temperature_c"] - selected["actual_temperature_c"])))
-    selected_rmse = float(np.sqrt(np.mean(np.square(selected["predicted_temperature_c"] - selected["actual_temperature_c"]))))
 
     beats_persistence = False
     if current_row is not None:
@@ -638,29 +665,6 @@ def main() -> None:
         key="status_badges",
         width="stretch",
     )
-
-    st.markdown('<div class="section-kicker">SELECTED HORIZON SNAPSHOT</div>', unsafe_allow_html=True)
-    cards = st.columns(4)
-    with cards[0]:
-        metric_card("LATEST OBSERVED", f"{float(latest['actual_temperature_c']):.2f}°C", pd.Timestamp(latest["target_timestamp"]).strftime("%d %b %Y · %H:%M"))
-    with cards[1]:
-        metric_card(f"LSTM · +{horizon}H", f"{float(latest['predicted_temperature_c']):.2f}°C", f"Target error {latest_error:.2f}°C", "best" if beats_persistence else "")
-    with cards[2]:
-        metric_card("VISIBLE WINDOW MAE", f"{selected_mae:.2f}°C", f"RMSE {selected_rmse:.2f}°C")
-    with cards[3]:
-        metric_card("FORECAST BAND", f"{float(latest['lower_10_c']):.1f}–{float(latest['upper_90_c']):.1f}°C", "Empirical 10–90% interval")
-
-    st.markdown('<div class="section-kicker">HORIZON MATRIX</div>', unsafe_allow_html=True)
-    horizon_cards = st.columns(3)
-    for card, card_horizon in zip(horizon_cards, SUPPORTED_HORIZONS):
-        with card:
-            row = horizon_row(metrics, card_horizon)
-            mae_value = metric_value(row, "MAE")
-            rmse_value = metric_value(row, "RMSE")
-            persistence_value = metric_value(row, "persistence_MAE")
-            status = "beats persistence" if mae_value is not None and persistence_value is not None and mae_value < persistence_value else "benchmark pending"
-            state = "best" if card_horizon in PRIMARY_HORIZONS and status == "beats persistence" else ""
-            metric_card(f"+{card_horizon}H · TEST MAE", fmt_temp(mae_value), f"RMSE {fmt_temp(rmse_value)} · {status}", state)
 
     active_tab = ui.tabs(
         ["contracts", "monitor", "calibration", "benchmark"],
@@ -712,21 +716,34 @@ def main() -> None:
             if not threshold_targets:
                 st.info("No threshold rows match the selected horizon and visible forecast window.")
             else:
-                target_choice = ui.select(
-                    "Contract target timestamp",
-                    options=threshold_targets,
-                    value=threshold_targets[-1],
-                    format_func=lambda value: pd.Timestamp(value).strftime("%d %b %Y · %H:%M"),
-                    key="contract_target_timestamp",
-                )
+                stored_target = st.session_state.get("contract_target_default", threshold_targets[-1])
+                if stored_target not in threshold_targets:
+                    stored_target = threshold_targets[-1]
+                target_control, random_control = st.columns([4, 1])
+                with target_control:
+                    target_choice = ui.select(
+                        "Contract target timestamp",
+                        options=threshold_targets,
+                        value=stored_target,
+                        format_func=lambda value: pd.Timestamp(value).strftime("%d %b %Y · %H:%M"),
+                        key="contract_target_timestamp",
+                    )
                 if target_choice is None:
-                    target_choice = threshold_targets[-1]
+                    target_choice = stored_target
+                with random_control:
+                    st.markdown('<div class="small-muted" style="margin-top: 1.75rem;">Explore history</div>', unsafe_allow_html=True)
+                    if ui.button("↻ Randomize", variant="secondary", size="sm", key="randomize_contract_timestamp", width="stretch"):
+                        candidates = [value for value in threshold_targets if value != target_choice]
+                        st.session_state["contract_target_default"] = random.choice(candidates or threshold_targets)
+                        st.rerun()
                 contract_rows = thresholds[
                     (thresholds["horizon_hours"] == horizon)
                     & (thresholds["target_timestamp"] == target_choice)
                 ].sort_values("strike_c")
-                st.markdown(f'<div class="panel-title">Synthetic +{horizon}h threshold ladder</div>', unsafe_allow_html=True)
-                st.markdown('<div class="panel-subtitle">Five forecast-centred strikes · empirical validation-residual calibration</div>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="contract-kicker"><div><div class="panel-title">Highest temperature event bracket · +{horizon}h</div><div class="panel-subtitle">Five forecast-centred strikes · empirical validation-residual calibration</div></div><span class="contract-chip">{pd.Timestamp(target_choice).strftime("%d %b · %H:%M")}</span></div>',
+                    unsafe_allow_html=True,
+                )
                 st.plotly_chart(threshold_chart(contract_rows), width="stretch", config={"displayModeBar": False})
                 contract_left, contract_right = st.columns([1.35, 1])
                 with contract_left:
@@ -738,8 +755,6 @@ def main() -> None:
                     st.dataframe(table, hide_index=True, width="stretch")
                 with contract_right:
                     record = contract_rows.iloc[0]
-                    st.metric("Forecast temperature", f"{float(record['predicted_temperature_c']):.2f}°C")
-                    st.metric("Actual temperature", f"{float(record['actual_temperature_c']):.2f}°C")
                     st.download_button(
                         "Download threshold rows",
                         data=contract_rows.to_csv(index=False).encode("utf-8"),
@@ -747,6 +762,14 @@ def main() -> None:
                         mime="text/csv",
                         width="stretch",
                     )
+                compact_stats(
+                    [
+                        ("Forecast temperature", f"{float(record['predicted_temperature_c']):.2f}°C", "model point estimate"),
+                        ("Actual temperature", f"{float(record['actual_temperature_c']):.2f}°C", "observed target value"),
+                        ("Visible-window MAE", f"{selected_mae:.2f}°C", f"+{horizon}h · last {len(selected):,} rows"),
+                        ("Point error", f"{float(record['predicted_temperature_c']) - float(record['actual_temperature_c']):+.2f}°C", "forecast minus observed"),
+                    ]
+                )
                 st.markdown('<div class="danger-note"><strong>Synthetic only:</strong> these probabilities are derived from validation residuals and forecast-centred strikes. They are not official Kalshi market prices or probabilities.</div>', unsafe_allow_html=True)
 
     elif active_tab == "calibration":
