@@ -2,4 +2,9 @@ streamlit==1.49.1
 pandas==2.3.2
 numpy==2.2.6
 plotly==6.3.0
+torch==2.5.1
+transformers==4.46.3
+huggingface-hub==0.26.2
+safetensors==0.4.5
+sentencepiece==0.2.0
 

@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .streamlit/secrets.toml
 artifacts/gru_A_24.h5
+artifacts/indobertweet_model/
+*.safetensors

@@ -1,55 +1,58 @@
-# MBG Opinion Pulse — IndoBERTweet v1
+# MBG Opinion Studio — IndoBERTweet v2
 
-A dark, artifact-backed Streamlit dashboard for the IndoBERTweet MBG public-opinion classifier. It explores the Kaggle test predictions, confidence profiles, sentiment mix, and held-out validation quality.
+Indonesian-first Streamlit application for the regularized five-fold IndoBERTweet MBG classifier. Users can type a comment, classify it with the best fold model, inspect class probabilities, and explore the v2 out-of-fold/test exports.
 
-The dashboard deliberately does not load the 442 MB model weights during startup. This keeps Streamlit Cloud lightweight and avoids presenting hidden Kaggle test labels as measured outcomes.
+The v2 test set is unlabeled. Its distribution is therefore a model-output view, not a measured opinion poll.
 
-## Run locally
+## Local run
+
+Use Python 3.12 for live inference, matching Streamlit Community Cloud’s default runtime:
 
 ```powershell
 cd D:\dev\mbc-week5-deployment\streamlit_v1
-& .\.venv313\Scripts\python.exe -m streamlit run app.py --server.port 8504
+python -m pip install -r requirements.txt
+python -m streamlit run app.py --server.port 8504
 ```
 
-Open `http://localhost:8504`.
+The app still starts without v2 artifacts or model credentials and shows an actionable setup state.
 
-## Bundled artifacts
+## V2 artifacts
 
-The app reads these files from `artifacts/` by default:
+After running `notebooks/indobertweet_mbg_v2_5fold.ipynb` on Kaggle, place or upload:
 
 ```text
-predictions_test.csv
-predictions_validation.csv
-classification_report.csv
-confusion_matrix.csv
-label_mapping.json
-model_metadata.json
-submission.csv
+predictions_test_v2.csv
+predictions_oof_v2.csv
+fold_metrics_v2.csv
+classification_report_v2.csv
+confusion_matrix_v2.csv
+model_metadata_v2.json
+label_mapping_v2.json
 ```
 
-You can also upload `indobertweet_mbg_v1.zip` or an individual `predictions_test.csv` from the sidebar. Uploaded files replace the bundled data for that session.
+The sidebar accepts the exported v2 ZIP or individual CSV/JSON files. Uploaded data replaces bundled data for that session; missing optional files hide their corresponding panels.
 
-## Prediction schema
+## Live model configuration
 
-The required test prediction columns are:
+For local testing, extract the best-fold model to:
 
 ```text
-id, comment, predicted_label,
-probability_Negative, probability_Neutral, probability_Positive
+artifacts/indobertweet_model/
 ```
 
-The validation file additionally requires `label`.
+For Streamlit Cloud, upload that folder to a private Hugging Face model repository and configure these secrets:
 
-## Important boundary
-
-The Kaggle competition test labels are hidden. Therefore the test distribution and confidence views are model outputs, not a public-opinion poll. Validation metrics are calculated only from the labeled hold-out split. Live inference can be added later with a separate model-serving deployment.
-
-## v2 training notebook
-
-The `indobertweet-mbg-v2` branch includes:
-
-```text
-notebooks/indobertweet_mbg_v2_5fold.ipynb
+```toml
+HF_MODEL_ID = "your-account/indobertweet-mbg-v2"
+HF_TOKEN = "hf_..."
 ```
 
-Run it on Kaggle with a GPU. It trains five stratified IndoBERTweet folds with stronger dropout, weight decay, label smoothing, gradient clipping, and early stopping. It exports out-of-fold validation metrics plus probability-averaged test predictions under `/kaggle/working/indobertweet_mbg_v2/`.
+The model is loaded lazily only after the user clicks **Klasifikasikan komentar** and is cached for subsequent predictions. Never commit `HF_TOKEN` or model weights.
+
+## Training notebook
+
+The v2 Kaggle notebook is [notebooks/indobertweet_mbg_v2_5fold.ipynb](notebooks/indobertweet_mbg_v2_5fold.ipynb). It trains five stratified folds with stronger dropout, weight decay, label smoothing, gradient clipping, and early stopping. Live inference uses the best fold; exported test predictions average all five folds.
+
+## Boundary and privacy
+
+Typed comments remain in Streamlit session memory only. They are not written to disk or sent to an analytics service. Predictions are model outputs and should not be treated as moderation decisions or objective truth.
