@@ -454,9 +454,57 @@ def forecast_chart(frame: pd.DataFrame, horizon: int) -> go.Figure:
     return figure
 
 
-def threshold_chart(frame: pd.DataFrame) -> go.Figure:
+def bracket_distribution(frame: pd.DataFrame) -> pd.DataFrame:
+    """Convert calibrated cumulative thresholds into exclusive temperature brackets."""
     ordered = frame.sort_values("strike_c").copy()
-    labels = [f"{value:.0f}°C" for value in ordered["strike_c"]]
+    strikes = ordered["strike_c"].to_numpy(dtype=float)
+    cumulative = np.clip(ordered["probability_yes"].to_numpy(dtype=float), 0.0, 1.0)
+    # Threshold probabilities should be non-increasing. Clip small calibration
+    # inversions so bracket masses remain valid probabilities.
+    cumulative = np.minimum.accumulate(cumulative)
+    masses = np.concatenate(([1.0 - cumulative[0]], -np.diff(cumulative), [cumulative[-1]]))
+    masses = np.clip(masses, 0.0, None)
+    total = float(masses.sum())
+    if total <= 0:
+        masses = np.full(len(masses), 1.0 / len(masses))
+    else:
+        masses = masses / total
+
+    labels = [f"< {strikes[0]:.0f}°C"]
+    lower_bounds: list[float | None] = [None]
+    upper_bounds: list[float | None] = [float(strikes[0])]
+    for left, right in zip(strikes[:-1], strikes[1:]):
+        labels.append(f"{left:.0f}–<{right:.0f}°C")
+        lower_bounds.append(float(left))
+        upper_bounds.append(float(right))
+    labels.append(f"≥ {strikes[-1]:.0f}°C")
+    lower_bounds.append(float(strikes[-1]))
+    upper_bounds.append(None)
+
+    actual = float(ordered["actual_temperature_c"].iloc[0])
+    observed_bucket = []
+    for lower, upper in zip(lower_bounds, upper_bounds):
+        observed_bucket.append(
+            (lower is None and actual < float(upper))
+            or (upper is None and actual >= float(lower))
+            or (lower is not None and upper is not None and lower <= actual < upper)
+        )
+    return pd.DataFrame(
+        {
+            "bracket_label": labels,
+            "lower_bound_c": lower_bounds,
+            "upper_bound_c": upper_bounds,
+            "probability_yes": masses,
+            "observed_yes": observed_bucket,
+            "actual_temperature_c": actual,
+            "predicted_temperature_c": float(ordered["predicted_temperature_c"].iloc[0]),
+        }
+    )
+
+
+def bracket_chart(frame: pd.DataFrame) -> go.Figure:
+    ordered = frame.copy()
+    labels = ordered["bracket_label"].tolist()
     colors = ["#26e0a5" if bool(value) else "#657583" for value in ordered["observed_yes"]]
     figure = go.Figure(
         go.Bar(
@@ -466,7 +514,7 @@ def threshold_chart(frame: pd.DataFrame) -> go.Figure:
             text=[f"{value * 100:.1f}%" for value in ordered["probability_yes"]],
             textposition="outside",
             cliponaxis=False,
-            hovertemplate="Strike %{x}<br>Probability YES: %{y:.1f}%<extra></extra>",
+            hovertemplate="Bracket %{x}<br>Probability YES: %{y:.1f}%<extra></extra>",
         )
     )
     figure.add_trace(
@@ -480,7 +528,7 @@ def threshold_chart(frame: pd.DataFrame) -> go.Figure:
             textposition="top center",
             textfont={"color": "#aab8c4", "size": 11},
             name="Probability",
-            hovertemplate="Strike %{x}<br>Probability YES: %{y:.1f}%<extra></extra>",
+            hovertemplate="Bracket %{x}<br>Probability YES: %{y:.1f}%<extra></extra>",
         )
     )
     figure.update_layout(
@@ -490,7 +538,7 @@ def threshold_chart(frame: pd.DataFrame) -> go.Figure:
         plot_bgcolor="#131a21",
         font={"color": "#aab8c4", "family": "Inter, sans-serif"},
         yaxis={"title": "Synthetic probability (%)", "range": [0, 108], "gridcolor": "#27333c", "zeroline": False},
-        xaxis={"title": "Threshold strike", "gridcolor": "#27333c", "linecolor": "#27333c"},
+        xaxis={"title": "Temperature bracket", "gridcolor": "#27333c", "linecolor": "#27333c"},
         showlegend=False,
     )
     return figure
@@ -741,25 +789,25 @@ def main() -> None:
                     (thresholds["horizon_hours"] == horizon)
                     & (thresholds["target_timestamp"] == target_choice)
                 ].sort_values("strike_c")
+                bracket_rows = bracket_distribution(contract_rows)
                 st.markdown(
-                    f'<div class="contract-kicker"><div><div class="panel-title">Highest temperature event bracket · +{horizon}h</div><div class="panel-subtitle">Five forecast-centred strikes · empirical validation-residual calibration</div></div><span class="contract-chip">{pd.Timestamp(target_choice).strftime("%d %b · %H:%M")}</span></div>',
+                    f'<div class="contract-kicker"><div><div class="panel-title">Highest temperature event brackets · +{horizon}h</div><div class="panel-subtitle">Mutually exclusive temperature ranges · calibrated bracket probabilities</div></div><span class="contract-chip">{pd.Timestamp(target_choice).strftime("%d %b · %H:%M")}</span></div>',
                     unsafe_allow_html=True,
                 )
-                st.plotly_chart(threshold_chart(contract_rows), width="stretch", config={"displayModeBar": False})
+                st.plotly_chart(bracket_chart(bracket_rows), width="stretch", config={"displayModeBar": False})
                 contract_left, contract_right = st.columns([1.35, 1])
                 with contract_left:
-                    table = contract_rows[["strike_c", "probability_yes", "observed_yes"]].copy()
-                    table["strike_c"] = table["strike_c"].map(lambda value: f"{value:.0f}°C")
+                    table = bracket_rows[["bracket_label", "probability_yes", "observed_yes"]].copy()
                     table["probability_yes"] = table["probability_yes"].map(lambda value: f"{value * 100:.1f}%")
                     table["observed_yes"] = table["observed_yes"].map(lambda value: "YES" if value else "NO")
-                    table.columns = ["Strike", "Probability YES", "Observed outcome"]
+                    table.columns = ["Temperature bracket", "Probability YES", "Observed outcome"]
                     st.dataframe(table, hide_index=True, width="stretch")
                 with contract_right:
-                    record = contract_rows.iloc[0]
+                    record = bracket_rows.iloc[0]
                     st.download_button(
-                        "Download threshold rows",
-                        data=contract_rows.to_csv(index=False).encode("utf-8"),
-                        file_name=f"thresholds_v2_plus_{horizon}h.csv",
+                        "Download bracket rows",
+                        data=bracket_rows.to_csv(index=False).encode("utf-8"),
+                        file_name=f"brackets_v2_plus_{horizon}h.csv",
                         mime="text/csv",
                         width="stretch",
                     )
@@ -771,7 +819,7 @@ def main() -> None:
                         ("Point error", f"{float(record['predicted_temperature_c']) - float(record['actual_temperature_c']):+.2f}°C", "forecast minus observed"),
                     ]
                 )
-                st.markdown('<div class="danger-note"><strong>Synthetic only:</strong> these probabilities are derived from validation residuals and forecast-centred strikes. They are not official Kalshi market prices or probabilities.</div>', unsafe_allow_html=True)
+                st.markdown('<div class="danger-note"><strong>Synthetic only:</strong> each row is a binary bracket contract. Probabilities are derived from calibrated cumulative thresholds and are not official Kalshi market prices or probabilities.</div>', unsafe_allow_html=True)
 
     elif active_tab == "calibration":
         if calibration is None:

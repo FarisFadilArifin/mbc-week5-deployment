@@ -43,4 +43,6 @@ The target timestamp must equal the as-of timestamp plus the declared horizon in
 
 The threshold view is a synthetic Kalshi-style demonstration produced from empirical validation residuals. It is not an official Kalshi probability, market price, trading signal, or live weather forecast.
 
+The dashboard also derives mutually exclusive temperature brackets from the exported cumulative thresholds at runtime. For adjacent strikes, bracket mass is calculated as `P(T >= lower) - P(T >= upper)`, so the bracket chart can form a bell-shaped predictive distribution without rerunning the Kaggle notebook.
+
 A future live-inference version would need a current 72-hour sequence with the exact 19-feature preprocessing pipeline used by the Kaggle notebook.
