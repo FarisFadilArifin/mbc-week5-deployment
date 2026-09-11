@@ -141,6 +141,12 @@ def inject_styles() -> None:
         .legend-swatch.observed { background: #26e0a5; }
         .legend-swatch.other { background: #657583; }
         .legend-swatch.curve { width: .9rem; height: .16rem; border-radius: 999px; background: #72d9ff; }
+        .legend-swatch.forecast { background: transparent; border: 2px solid #b49aff; }
+        .signal-strip { display: flex; align-items: center; justify-content: space-between; gap: 1rem; background: linear-gradient(90deg, #111c25, #0c141b); border: 1px solid #315064; border-radius: 10px; padding: .7rem .85rem; margin: .75rem 0 .85rem; }
+        .signal-label { color: var(--cyan); font: 700 .62rem/1.2 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
+        .signal-value { color: var(--text); font-size: 1.08rem; font-weight: 750; }
+        .signal-detail { color: var(--muted); font-size: .74rem; text-align: right; }
+        .period-note { color: var(--muted); font-size: .72rem; line-height: 1.35; padding-top: .35rem; }
         @media (max-width: 800px) { .mini-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         </style>
         """,
@@ -489,12 +495,19 @@ def bracket_distribution(frame: pd.DataFrame) -> pd.DataFrame:
     upper_bounds.append(None)
 
     actual = float(ordered["actual_temperature_c"].iloc[0])
+    predicted = float(ordered["predicted_temperature_c"].iloc[0])
     observed_bucket = []
+    predicted_bucket = []
     for lower, upper in zip(lower_bounds, upper_bounds):
         observed_bucket.append(
             (lower is None and actual < float(upper))
             or (upper is None and actual >= float(lower))
             or (lower is not None and upper is not None and lower <= actual < upper)
+        )
+        predicted_bucket.append(
+            (lower is None and predicted < float(upper))
+            or (upper is None and predicted >= float(lower))
+            or (lower is not None and upper is not None and lower <= predicted < upper)
         )
     return pd.DataFrame(
         {
@@ -503,8 +516,9 @@ def bracket_distribution(frame: pd.DataFrame) -> pd.DataFrame:
             "upper_bound_c": upper_bounds,
             "probability_yes": masses,
             "observed_yes": observed_bucket,
+            "predicted_bracket": predicted_bucket,
             "actual_temperature_c": actual,
-            "predicted_temperature_c": float(ordered["predicted_temperature_c"].iloc[0]),
+            "predicted_temperature_c": predicted,
         }
     )
 
@@ -513,11 +527,15 @@ def bracket_chart(frame: pd.DataFrame) -> go.Figure:
     ordered = frame.copy()
     labels = ordered["bracket_label"].tolist()
     colors = ["#26e0a5" if bool(value) else "#657583" for value in ordered["observed_yes"]]
+    line_colors = ["#b49aff" if bool(value) else "#27333c" for value in ordered["predicted_bracket"]]
+    line_widths = [2.0 if bool(value) else 0.8 for value in ordered["predicted_bracket"]]
     figure = go.Figure(
         go.Bar(
             x=labels,
             y=ordered["probability_yes"] * 100,
             marker_color=colors,
+            marker_line_color=line_colors,
+            marker_line_width=line_widths,
             text=[f"{value * 100:.1f}%" for value in ordered["probability_yes"]],
             textposition="outside",
             cliponaxis=False,
@@ -539,8 +557,8 @@ def bracket_chart(frame: pd.DataFrame) -> go.Figure:
         )
     )
     figure.update_layout(
-        height=360,
-        margin={"l": 16, "r": 16, "t": 28, "b": 24},
+        height=380,
+        margin={"l": 16, "r": 16, "t": 46, "b": 24},
         paper_bgcolor="#131a21",
         plot_bgcolor="#131a21",
         font={"color": "#aab8c4", "family": "Inter, sans-serif"},
@@ -548,6 +566,17 @@ def bracket_chart(frame: pd.DataFrame) -> go.Figure:
         xaxis={"title": "Temperature bracket", "gridcolor": "#27333c", "linecolor": "#27333c"},
         showlegend=False,
     )
+    predicted_index = int(np.flatnonzero(ordered["predicted_bracket"].to_numpy(dtype=bool))[0])
+    observed_index = int(np.flatnonzero(ordered["observed_yes"].to_numpy(dtype=bool))[0])
+    figure.add_annotation(
+        x=labels[predicted_index], y=1.04, xref="x", yref="paper",
+        text="FORECAST", showarrow=False, font={"color": "#b49aff", "size": 10},
+    )
+    if observed_index != predicted_index:
+        figure.add_annotation(
+            x=labels[observed_index], y=0.96, xref="x", yref="paper",
+            text="OBSERVED", showarrow=False, font={"color": "#26e0a5", "size": 10},
+        )
     return figure
 
 
@@ -699,7 +728,7 @@ def main() -> None:
         value="contracts",
         format_func=lambda value: {
             "monitor": "Forecast monitor",
-            "contracts": "Synthetic contracts",
+            "contracts": "Temperature brackets",
             "calibration": "Calibration",
             "benchmark": "Benchmark & model",
         }[value],
@@ -770,18 +799,49 @@ def main() -> None:
                         candidates = [value for value in all_threshold_targets if value != target_choice]
                         st.session_state["contract_target_default"] = random.choice(candidates or all_threshold_targets)
                         st.rerun()
+                target_index = next(
+                    (index for index, value in enumerate(all_threshold_targets) if pd.Timestamp(value) == pd.Timestamp(target_choice)),
+                    0,
+                )
+                navigation_left, navigation_right, period_note = st.columns([1, 1, 4])
+                with navigation_left:
+                    if ui.button("← Previous", variant="outline", size="sm", key="previous_contract_timestamp", width="stretch"):
+                        st.session_state["contract_target_default"] = all_threshold_targets[(target_index - 1) % len(all_threshold_targets)]
+                        st.rerun()
+                with navigation_right:
+                    if ui.button("Next →", variant="outline", size="sm", key="next_contract_timestamp", width="stretch"):
+                        st.session_state["contract_target_default"] = all_threshold_targets[(target_index + 1) % len(all_threshold_targets)]
+                        st.rerun()
+                with period_note:
+                    full_start = pd.Timestamp(all_threshold_targets[0]).strftime("%d %b %Y · %H:%M")
+                    full_end = pd.Timestamp(all_threshold_targets[-1]).strftime("%d %b %Y · %H:%M")
+                    visible_start = pd.Timestamp(threshold_targets[0]).strftime("%d %b %Y")
+                    visible_end = pd.Timestamp(threshold_targets[-1]).strftime("%d %b %Y")
+                    outside_window = target_choice not in threshold_targets
+                    outside_note = " · selected outside visible window" if outside_window else ""
+                    st.markdown(
+                        f'<div class="period-note">Full test period: {full_start} → {full_end}<br>Visible window: {visible_start} → {visible_end}{outside_note}</div>',
+                        unsafe_allow_html=True,
+                    )
                 contract_rows = thresholds[
                     (thresholds["horizon_hours"] == horizon)
                     & (thresholds["target_timestamp"] == target_choice)
                 ].sort_values("strike_c")
                 bracket_rows = bracket_distribution(contract_rows)
                 st.markdown(
-                    f'<div class="contract-kicker"><div><div class="panel-title">Highest temperature event brackets · +{horizon}h</div><div class="panel-subtitle">Mutually exclusive temperature ranges · calibrated bracket probabilities</div></div><span class="contract-chip">{pd.Timestamp(target_choice).strftime("%d %b · %H:%M")}</span></div>',
+                    f'<div class="contract-kicker"><div><div class="panel-title">Temperature bracket probabilities · +{horizon}h</div><div class="panel-subtitle">Mutually exclusive temperature ranges · calibrated bracket probabilities</div></div><span class="contract-chip">{pd.Timestamp(target_choice).strftime("%d %b · %H:%M")}</span></div>',
+                    unsafe_allow_html=True,
+                )
+                most_likely_index = int(bracket_rows["probability_yes"].idxmax())
+                most_likely = bracket_rows.loc[most_likely_index]
+                observed_label = "YES" if bool(most_likely["observed_yes"]) else "NO"
+                st.markdown(
+                    f'<div class="signal-strip"><div><div class="signal-label">Most likely bracket</div><div class="signal-value">{html.escape(str(most_likely["bracket_label"]))} · {float(most_likely["probability_yes"]):.1%}</div></div><div class="signal-detail">Observed outcome for this bracket: <strong>{observed_label}</strong><br>Probabilities sum to 100%</div></div>',
                     unsafe_allow_html=True,
                 )
                 st.plotly_chart(bracket_chart(bracket_rows), width="stretch", config={"displayModeBar": False})
                 st.markdown(
-                    '<div class="chart-legend"><span class="chart-legend-item"><span class="legend-swatch observed"></span>Observed bracket (YES)</span><span class="chart-legend-item"><span class="legend-swatch other"></span>Other bracket probabilities</span><span class="chart-legend-item"><span class="legend-swatch curve"></span>Calibrated probability curve</span></div>',
+                    '<div class="chart-legend"><span class="chart-legend-item"><span class="legend-swatch observed"></span>Observed bracket (YES)</span><span class="chart-legend-item"><span class="legend-swatch other"></span>Other bracket probabilities</span><span class="chart-legend-item"><span class="legend-swatch forecast"></span>Forecast bracket</span><span class="chart-legend-item"><span class="legend-swatch curve"></span>Calibrated probability curve</span></div>',
                     unsafe_allow_html=True,
                 )
                 table = bracket_rows[["bracket_label", "probability_yes", "observed_yes"]].copy()
@@ -842,6 +902,24 @@ def main() -> None:
                 display_metrics.style.format({column: "{:.3f}" for column in display_metrics.columns if column != "Horizon"}),
                 hide_index=True,
                 width="stretch",
+            )
+            selected_metric = horizon_row(metrics, horizon)
+            selected_mae_metric = metric_value(selected_metric, "MAE")
+            selected_rmse_metric = metric_value(selected_metric, "RMSE")
+            selected_brier = metric_value(selected_metric, "brier_score")
+            calibration_gap = None
+            if calibration is not None and not calibration.empty:
+                calibration_gap = float(
+                    np.mean(np.abs(calibration["mean_probability"] - calibration["observed_rate"]))
+                )
+            st.markdown(f'<div class="section-kicker">+{horizon}H QUALITY SUMMARY</div>', unsafe_allow_html=True)
+            compact_stats(
+                [
+                    ("Test forecasts", f"{len(horizon_frame):,}", "chronological test rows"),
+                    ("MAE / RMSE", f"{fmt_temp(selected_mae_metric)} / {fmt_temp(selected_rmse_metric)}", "selected horizon"),
+                    ("Brier score", "—" if selected_brier is None else f"{selected_brier:.3f}", "synthetic bracket contracts"),
+                    ("Calibration gap", "—" if calibration_gap is None else f"{calibration_gap:.1%}", "mean absolute bin gap"),
+                ]
             )
             six_hour = horizon_row(metrics, 6)
             if six_hour is not None and metric_value(six_hour, "v1_reference_MAE") is not None:
