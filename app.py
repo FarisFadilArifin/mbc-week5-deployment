@@ -134,6 +134,13 @@ def inject_styles() -> None:
         .mini-stat-foot { color: var(--muted); font-size: .69rem; line-height: 1.25; }
         .contract-kicker { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
         .contract-chip { display: inline-flex; align-items: center; border: 1px solid rgba(255, 227, 215, .55); background: rgba(54, 16, 10, .35); color: #fff7f2; padding: .28rem .58rem; border-radius: 999px; font: 700 .67rem/1.1 ui-monospace, monospace; white-space: nowrap; }
+        .control-label { color: var(--muted); font-size: .78rem; line-height: 1.3; height: 1.55rem; display: flex; align-items: flex-start; }
+        .chart-legend { display: flex; flex-wrap: wrap; gap: .8rem 1.25rem; margin: .55rem 0 .8rem; color: var(--muted); font-size: .72rem; }
+        .chart-legend-item { display: inline-flex; align-items: center; gap: .35rem; }
+        .legend-swatch { width: .62rem; height: .62rem; border-radius: 2px; display: inline-block; }
+        .legend-swatch.observed { background: #26e0a5; }
+        .legend-swatch.other { background: #657583; }
+        .legend-swatch.curve { width: .9rem; height: .16rem; border-radius: 999px; background: #72d9ff; }
         @media (max-width: 800px) { .mini-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         </style>
         """,
@@ -679,18 +686,7 @@ def main() -> None:
     selected = horizon_frame.tail(visible_window).reset_index(drop=True)
     latest = selected.iloc[-1]
     latest_error = abs(float(latest["predicted_temperature_c"]) - float(latest["actual_temperature_c"]))
-    current_row = horizon_row(metrics, horizon)
     selected_mae = float(np.mean(np.abs(selected["predicted_temperature_c"] - selected["actual_temperature_c"])))
-
-    beats_persistence = False
-    if current_row is not None:
-        model_mae = metric_value(current_row, "MAE")
-        persistence_mae = metric_value(current_row, "persistence_MAE")
-        model_rmse = metric_value(current_row, "RMSE")
-        persistence_rmse = metric_value(current_row, "persistence_RMSE")
-        beats_persistence = all(
-            value is not None for value in [model_mae, persistence_mae, model_rmse, persistence_rmse]
-        ) and model_mae < persistence_mae and model_rmse < persistence_rmse
 
     st.markdown('<div class="eyebrow">SEQUENTIAL WEATHER LAB · LSTM V2</div>', unsafe_allow_html=True)
     st.markdown('<h1 class="hero-title">Short-horizon temperature intelligence</h1>', unsafe_allow_html=True)
@@ -698,17 +694,6 @@ def main() -> None:
         '<div class="hero-copy">A 72-hour LSTM backtest with direct +1h, +2h, and +6h forecasts. The primary view follows the short horizons while preserving transparent benchmark and calibration evidence.</div>',
         unsafe_allow_html=True,
     )
-    status_text = "MODEL BEATS PERSISTENCE" if beats_persistence else "BACKTEST · REVIEW BASELINE"
-    ui.badges(
-        [
-            (f"● {status_text}", "default" if beats_persistence else "outline"),
-            (f"● +{horizon}H SELECTED", "secondary"),
-            ("● SYNTHETIC CONTRACTS", "destructive"),
-        ],
-        key="status_badges",
-        width="stretch",
-    )
-
     active_tab = ui.tabs(
         ["contracts", "monitor", "calibration", "benchmark"],
         value="contracts",
@@ -780,7 +765,7 @@ def main() -> None:
                     target_choice = stored_target
                 st.session_state["contract_target_default"] = target_choice
                 with random_control:
-                    st.markdown('<div class="small-muted" style="margin-top: 1.75rem;">Explore history</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="control-label">Explore history</div>', unsafe_allow_html=True)
                     if ui.button("↻ Randomize", variant="secondary", size="sm", key="randomize_contract_timestamp", width="stretch"):
                         candidates = [value for value in all_threshold_targets if value != target_choice]
                         st.session_state["contract_target_default"] = random.choice(candidates or all_threshold_targets)
@@ -795,22 +780,16 @@ def main() -> None:
                     unsafe_allow_html=True,
                 )
                 st.plotly_chart(bracket_chart(bracket_rows), width="stretch", config={"displayModeBar": False})
-                contract_left, contract_right = st.columns([1.35, 1])
-                with contract_left:
-                    table = bracket_rows[["bracket_label", "probability_yes", "observed_yes"]].copy()
-                    table["probability_yes"] = table["probability_yes"].map(lambda value: f"{value * 100:.1f}%")
-                    table["observed_yes"] = table["observed_yes"].map(lambda value: "YES" if value else "NO")
-                    table.columns = ["Temperature bracket", "Probability YES", "Observed outcome"]
-                    st.dataframe(table, hide_index=True, width="stretch")
-                with contract_right:
-                    record = bracket_rows.iloc[0]
-                    st.download_button(
-                        "Download bracket rows",
-                        data=bracket_rows.to_csv(index=False).encode("utf-8"),
-                        file_name=f"brackets_v2_plus_{horizon}h.csv",
-                        mime="text/csv",
-                        width="stretch",
-                    )
+                st.markdown(
+                    '<div class="chart-legend"><span class="chart-legend-item"><span class="legend-swatch observed"></span>Observed bracket (YES)</span><span class="chart-legend-item"><span class="legend-swatch other"></span>Other bracket probabilities</span><span class="chart-legend-item"><span class="legend-swatch curve"></span>Calibrated probability curve</span></div>',
+                    unsafe_allow_html=True,
+                )
+                table = bracket_rows[["bracket_label", "probability_yes", "observed_yes"]].copy()
+                table["probability_yes"] = table["probability_yes"].map(lambda value: f"{value * 100:.1f}%")
+                table["observed_yes"] = table["observed_yes"].map(lambda value: "YES" if value else "NO")
+                table.columns = ["Temperature bracket", "Probability YES", "Observed outcome"]
+                st.dataframe(table, hide_index=True, width="stretch")
+                record = bracket_rows.iloc[0]
                 compact_stats(
                     [
                         ("Forecast temperature", f"{float(record['predicted_temperature_c']):.2f}°C", "model point estimate"),
