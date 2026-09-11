@@ -4,6 +4,10 @@ A lightweight Streamlit dashboard for the LSTM v2 multi-horizon Jena Climate bac
 
 The interface prioritizes +1h and +2h forecasts, while retaining +6h metrics for comparison with the v1 benchmark. It visualizes precomputed Kaggle exports; it does not load TensorFlow, call a weather API, or claim to be a live station or Kalshi forecast.
 
+## Deployment
+
+The v2 app is deployed at [lstm-temperature-v2.streamlit.app](https://lstm-temperature-v2.streamlit.app/). It is an artifact-backed 2016 Jena Climate backtest; no current weather feed or live inference is used.
+
 ## Run locally
 
 ```powershell
@@ -16,6 +20,8 @@ Then open `http://localhost:8501`.
 The deployment pins Streamlit 1.63 and `streamlit-shadcn-ui` 1.4 because the shadcn Components V2 package requires Streamlit 1.60 or newer.
 
 The app loads the bundled files from `artifacts/` automatically. Use the sidebar uploader to replace them with a compatible v2 export bundle.
+
+The exported model files (`lstm_v2_multihorizon.keras` and `lstm_v2_multihorizon.h5`) are retained for reproducibility, but this lightweight dashboard reads the precomputed forecast exports only.
 
 ## Bundle files
 
