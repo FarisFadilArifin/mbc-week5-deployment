@@ -4,6 +4,10 @@ A dark, artifact-backed Streamlit dashboard for the IndoBERTweet MBG public-opin
 
 The dashboard deliberately does not load the 442 MB model weights during startup. This keeps Streamlit Cloud lightweight and avoids presenting hidden Kaggle test labels as measured outcomes.
 
+## Deployment
+
+The v1 app is deployed at [indobertweet-mbg-v1.streamlit.app](https://indobertweet-mbg-v1.streamlit.app/). It is an artifact-backed analysis dashboard; live comment classification is provided by the separate v2 app.
+
 ## Run locally
 
 ```powershell
@@ -28,6 +32,8 @@ submission.csv
 ```
 
 You can also upload `indobertweet_mbg_v1.zip` or an individual `predictions_test.csv` from the sidebar. Uploaded files replace the bundled data for that session.
+
+The IndoBERTweet model is a Hugging Face transformer bundle (`model.safetensors` plus tokenizer/configuration files), not a Keras `.h5` model. This v1 dashboard intentionally does not load it.
 
 ## Prediction schema
 
