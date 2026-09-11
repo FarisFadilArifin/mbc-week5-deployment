@@ -1,0 +1,30 @@
+{
+  "model_version": "indobertweet_mbg_v2",
+  "model_type": "5-fold regularized probability ensemble",
+  "base_model": "indolem/indobertweet-base-uncased",
+  "id_column": "id",
+  "text_column": "comment",
+  "label_column": "label",
+  "label_mapping": {
+    "0": "Negative",
+    "1": "Neutral",
+    "2": "Positive"
+  },
+  "n_splits": 5,
+  "max_length": 160,
+  "learning_rate": 1.5e-05,
+  "num_epochs_max": 20,
+  "weight_decay": 0.05,
+  "label_smoothing": 0.05,
+  "max_grad_norm": 1.0,
+  "classifier_dropout": 0.3,
+  "hidden_dropout": 0.2,
+  "attention_dropout": 0.15,
+  "best_fold": 3,
+  "best_fold_macro_f1": 0.8689886097798238,
+  "oof_macro_f1": 0.8615100154051021,
+  "train_rows": 4453,
+  "competition_test_rows": 1114,
+  "test_labels_available": false,
+  "ensemble_prediction_method": "mean of five fold softmax probabilities"
+}
